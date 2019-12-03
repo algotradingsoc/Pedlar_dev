@@ -6,8 +6,11 @@ New pedlar under development. This is NOT the official version that has support
 Currently, there are three major problems in pedlar that we need to address. 
  
 Order management: Agents are allowed to have losing money orders open for an indefinite amount of time and thus leaderboard performance is inflated. 
+
 Multi-asset trading: Pedlar supports GBP/USD trading only and there is a need to expand to other FX pairs and US Equities.
+
 Dependencies: Agents relies on the pedlar server running to have price data and it can only be accessed through college network. Running pedlar relies on WebSockets and OO programming which might be not familiar to our members. This increases the burden of Tech support. 
+
 Solution 1: Agents now instead provide target asset holdings at each price update which the portfolio will be rebalanced accordingly. Agents will not make direct buy and sell orders. 
  
 Solution2: IEX and TrueFX data will be used.
