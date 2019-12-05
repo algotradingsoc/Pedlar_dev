@@ -33,7 +33,8 @@ class Agent:
 
     
 
-    def __init__(self, maxsteps=10, universefunc=None, ondatafunc=None, username="nobody", truefxid='', truefxpassword='', pedlarurl='http://127.0.0.1:5000'):
+    def __init__(self, maxsteps=100, universefunc=None, ondatafunc=None, ondataparams=None,
+    username="nobody", truefxid='', truefxpassword='', pedlarurl='http://127.0.0.1:5000'):
         
         self.endpoint = pedlarurl
         self.username = username  
@@ -63,7 +64,8 @@ class Agent:
 
         # User defined functions 
         self.universe_definition = universefunc
-        self.ondata = ondatafunc 
+        self.ondata = ondatafunc
+        self.ondatauserparms = ondataparams
 
     @classmethod
     def from_args(cls, parents=None):
@@ -98,6 +100,7 @@ class Agent:
         self.truefxparse = flag_parse_data
         self.truefxauthorized = authrorize
         # connect to other datasource 
+        # set up trading universe
         self.step = 0
         if self.universe_definition:
             self.universe = self.universe_definition()
@@ -162,11 +165,13 @@ class Agent:
     def update_history(self, verbose=False):
         # get raw data 
         truefx, iex = self.download_tick()
+        self.historysize = truefx.shape[0] + iex.shape[0]
 
         # build order book 
         self.orderbook = pd.DataFrame(columns=Book).set_index(['exchange', 'ticker'])
         self.orderbook = self.orderbook.append(truefx.set_index(['exchange', 'ticker']))
         self.orderbook = self.orderbook.append(iex.set_index(['exchange', 'ticker']))
+        self.orderbook['mid'] = (self.orderbook['ask'] + self.orderbook['bid'])/2
 
         # update price history 
         self.history = self.history.append(truefx.set_index(['time', 'exchange', 'ticker']))
@@ -175,7 +180,10 @@ class Agent:
         # Ensure uniquess in price history
         self.history = self.history[~self.history.index.duplicated(keep='first')]
 
-        # Remove old data in price history 
+        # Remove old data in price history
+        self.maxlookup = 5
+        self.history = self.history.iloc[-self.maxlookup*self.historysize:,:]
+         
 
         if verbose:
             print('Price History')
@@ -183,90 +191,31 @@ class Agent:
             print('Orderbook')
             print(self.orderbook)
 
-#################################################################################################################
-
-    def update_trades(self, exchange='TrueFX', ticker='GBP/USD', volume=1, entry_price=1.23, exit_price=1.24, entrytime=None, exittime=None):
-        self.tradeid += 1
-        self.trades.loc[self.tradeid] = [exchange, ticker, entry_price, exit_price, volume, entrytime, exittime]
-        trade_pnl = volume * (exit_price - entry_price) 
-        self.balance += trade_pnl
-        self.portfolio.loc[(exchange, ticker)] -= volume
-        # upload to pedlar server 
-        if self.connection: 
-            t = {'backtest_id': self.tradesession,'entrytime':entrytime.strftime("%s"), 'exittime':exittime.strftime("%s"), 'trade_id':self.tradeid,
-                    'exchange':exchange, 'ticker':ticker, 'volume':volume, 'entryprice':entry_price, 'exitprice':'exit_price' }
-            r = requests.post(self.endpoint+'/trade', json=json.dumps(t))
-
-        return None 
-
-    
-    def create_order(self, exchange='TrueFX', ticker='GBP/USD', price=1.23, volume=1, otype='market'):
-        self.orderid += 1
-        ref_price_slice = self.orderbook.loc[(exchange,ticker)]
-        if otype=='market':
-            if volume>0:
-                ref_price = ref_price_slice['ask']
-                ref_volume = min(volume,ref_price_slice['asksize'])
-                self.portfolio.loc[(exchange,ticker)] += ref_volume
-            else:
-                ref_price = ref_price_slice['bid']
-                ref_volume = min(volume,ref_price_slice['bidsize'])
-                self.portfolio.loc[(exchange,ticker)] += ref_volume
-        else:
-            ref_price = price 
-            ref_volume = volume 
-        ref_time = ref_price_slice['time']
-        self.orders.loc[self.orderid] = [exchange, ticker, ref_price, ref_volume, otype, ref_time ]
-        return None
-
-    def close_order(self, orderid=None):
-        current_order = self.orders.loc[orderid]
-        exchange = current_order['exchange']
-        ticker = current_order['ticker']
-        volume = current_order['volume']
-        entryprice = current_order['price']
-        entrytime = current_order['time']
-        # get closing price
-        quote = self.orderbook.loc[(exchange, ticker)]
-        if volume > 0:
-            exitprice = quote['bid']
-        else:
-            exitprice = quote['ask']
-        exittime = quote['time']
-        # update trade record
-        self.update_trades(exchange=exchange, ticker=ticker, volume=volume, entry_price=entryprice, exit_price=exitprice, entrytime=entrytime, exittime=exittime)
-        # delete order 
-        self.orders = self.orders.drop(orderid)
-        return None 
-
-#######################################################################################################################
-    
-
     def rebalance(self, new_weights, verbose=False):
         """
         Input: new_weights: dataframe with same index as portfolio
         """
         # add historical holdings
-        # To Do: Add time to the portfolio holdings? 
         now = datetime.now()
         current_holdings = self.portfolio.transpose().set_index(np.array([now]))
+        current_holdings['PorftolioValue'] = self.portfoval
         self.holdings.append(current_holdings)
         # construct changes 
         self.holdings_change = new_weights - self.portfolio
         # perform orders wrt to cash 
         # check asset allocation limit 
-        self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['ask']) + self.cash
+        self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
         self.caplim = self.portfoval * 2
-        self.abspos = np.sum(np.abs(new_weights['volume']) * self.orderbook['ask'])
+        self.abspos = np.sum(np.abs(new_weights['volume']) * self.orderbook['mid']) + self.cash
         if self.abspos > self.caplim:
-            raise Error()
+            raise ValueError('Portfolio allocation cannot exceed capital limit')
         # update to target portfolio
         # check cash must be positive 
         self.holdings_change['transact'] = np.where(self.holdings_change['volume']>0, self.orderbook.loc[self.holdings_change.index,:]['ask'],self.orderbook.loc[self.holdings_change.index,:]['bid']) * self.holdings_change['volume']
         self.cash = self.cash - np.sum(self.holdings_change['transact'])
-        if self.cash<0:
-            raise Error()
-        self.portfolio = new_weights 
+        if self.cash < 0:
+            raise ValueError('Cash cannot be negative')
+        self.portfolio = new_weights
         return None 
 
 
@@ -274,6 +223,7 @@ class Agent:
     def run_agents(self, verbose=False):
 
         self.start_agent(verbose)
+        
         if verbose:
             print(self.portfolio)
 
@@ -283,10 +233,13 @@ class Agent:
         while self.step < self.maxsteps:
             self.update_history(False)
             self.rebalance(new_weights)
-            new_weights = self.ondata(history=self.history, portfolio=self.portfolio, trades=self.trades)
+            # Run user provided function to get target portfolio weights for the next data
+            if not self.ondatauserparms:
+                self.ondatauserparms = {}
+            new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, trades=self.trades, caplim=self.caplim, **self.ondatauserparms)
             self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['ask']) + self.cash
             self.step += 1
-            time.sleep(2)
+            time.sleep(1)
             if verbose:
                 print('Step {} {}'.format(self.step, self.portfoval))
                 print()
@@ -298,11 +251,10 @@ class Agent:
 
 if __name__=='__main__':
 
-    def ondata(history, portfolio, trades):
-        # copy 
+    def ondata(step, history, portfolio, trades, caplim):
         target_portfolio = portfolio.copy()
-        # calculate target portfolio 
-        target_portfolio['volume'] = (np.random.random() - 0.5) * 10000
+        # calculate target portfolio which is random for this example
+        target_portfolio['volume'] = (np.random.random() - 0.5) * 100
         return target_portfolio
 
     agent = Agent(ondatafunc=ondata)
