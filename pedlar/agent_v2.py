@@ -237,7 +237,7 @@ class Agent:
             if not self.ondatauserparms:
                 self.ondatauserparms = {}
             new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, trades=self.trades, caplim=self.caplim, **self.ondatauserparms)
-            self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['ask']) + self.cash
+            self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
             self.step += 1
             time.sleep(1)
             if verbose:
