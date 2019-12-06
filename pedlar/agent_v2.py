@@ -34,10 +34,11 @@ class Agent:
     
 
     def __init__(self, maxsteps=100, universefunc=None, ondatafunc=None, ondataparams=None,
-    username="nobody", truefxid='', truefxpassword='', pedlarurl='http://127.0.0.1:5000'):
+    username="nobody", agnetname='myfirstagent' truefxid='', truefxpassword='', pedlarurl='http://127.0.0.1:5000'):
         
         self.endpoint = pedlarurl
         self.username = username  
+        self.agentname = agentname
         self.maxsteps = maxsteps
 
         self.orders = pd.DataFrame(columns=Order).set_index('order_id')
@@ -45,21 +46,19 @@ class Agent:
         
         self.history = pd.DataFrame(columns=Tick).set_index(['time', 'exchange', 'ticker'])
         self.orderbook = pd.DataFrame(columns=Book).set_index(['exchange', 'ticker'])
-        self.balance = 0 # PnL 
-
-        self.holdings = []
+        # List of holding history to be merge at the end of trading session 
+        self.holdingshistory = []
 
         # caplim is the max amount of capital allocated 
         # shorting uses up caplim but gives cash 
         # check caplim at each portfolio rebalance and scale down the target holding if that exceeds caplim
          
+        self.startcash = 50000
         self.portfoval = 50000
+        self.caplim = self.portfoval * 2
         self.pnl = 0
         self.cash = 50000
-        self.caplim = self.portfoval * 2
         
-        self.orderid = 0 
-        self.tradeid = 0
         self.tradesession = 0
 
         # User defined functions 
@@ -83,7 +82,7 @@ class Agent:
     def start_agent(self, verbose=False):
         # create user profile in MongoDB if not exist 
         try:
-            payload = {'user':self.username}
+            payload = {'user':self.username,'agent':self.agentname}
             r = requests.post(self.endpoint+"/user", json=payload)
             data = r.json()
             if data['exist']:
@@ -109,22 +108,6 @@ class Agent:
         self.create_portfolio(self.universe,verbose)
         return None
 
-    def save_record(self):
-        # upload to pedlar server 
-        if self.connection:
-            payload = {'user_id':self.username,'pnl':self.balance}
-            r = requests.post(self.endpoint+"/tradesession", json=payload)
-            self.tradesession = r.json()['tradesession']
-        time_format = "%Y_%m_%d_%H_%M_%S" # datetime column format
-        timestamp = datetime.now().strftime(time_format)
-        pricefilename = 'Historical_Price_{}.csv'.format(self.tradesession)
-        tradefilename = 'Trade_Record_{}.csv'.format(self.tradesession)
-        # save price history 
-        self.history.to_csv(pricefilename)
-        self.history_trades = pd.concat(self.holdings,axis=0)
-        self.history_trades.to_csv(tradefilename)
-
-        return None 
 
     def create_portfolio(self, tickerlist=None, verbose=False):
 
@@ -170,7 +153,6 @@ class Agent:
         
         self.historysize = truefx.shape[0] + iex.shape[0]
 
-
         # build order book 
         self.orderbook = pd.DataFrame(columns=Book).set_index(['exchange', 'ticker'])
         self.orderbook = self.orderbook.append(truefx.set_index(['exchange', 'ticker']))
@@ -187,7 +169,6 @@ class Agent:
         # Remove old data in price history
         self.maxlookup = 200
         self.history = self.history.iloc[-self.maxlookup*self.historysize:,:]
-         
 
         if verbose:
             print('Price History')
@@ -199,11 +180,11 @@ class Agent:
         """
         Input: new_weights: dataframe with same index as portfolio
         """
-        # add historical holdings
+        # add historical holdingshistory
         now = datetime.now()
         current_holdings = self.portfolio.transpose().set_index(np.array([now]))
         current_holdings['PorftolioValue'] = self.portfoval
-        self.holdings.append(current_holdings)
+        self.holdingshistory.append(current_holdings)
         # construct changes 
         self.holdings_change = new_weights - self.portfolio
         # perform orders wrt to cash 
@@ -220,7 +201,22 @@ class Agent:
         self.portfolio = new_weights
         return None 
 
+    def save_record(self):
+        # upload to pedlar server 
+        if self.connection:
+            payload = {'user_id':self.username,'pnl':self.pnl}
+            r = requests.post(self.endpoint+"/tradesession", json=payload)
+            self.tradesession = r.json()['tradesession']
+        time_format = "%Y_%m_%d_%H_%M_%S" # datetime column format
+        timestamp = datetime.now().strftime(time_format)
+        pricefilename = 'Historical_Price_{}.csv'.format(self.tradesession)
+        tradefilename = 'Trade_Record_{}.csv'.format(self.tradesession)
+        # save price history 
+        self.history.to_csv(pricefilename)
+        self.history_trades = pd.concat(self.holdingshistory,axis=0)
+        self.history_trades.to_csv(tradefilename)
 
+        return None 
 
     def run_live(self, verbose=False):
 
@@ -233,13 +229,14 @@ class Agent:
         new_weights = self.portfolio
 
         while self.step < self.maxsteps:
-            self.update_history(verbose=False)
+            self.update_history(backtest=False,verbose=False)
             self.rebalance(new_weights)
             # Run user provided function to get target portfolio weights for the next data
             if not self.ondatauserparms:
                 self.ondatauserparms = {}
             new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, trades=self.trades, caplim=self.caplim, **self.ondatauserparms)
             self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
+            self.pnl = self.portfoval - self.startcash 
             self.step += 1
             time.sleep(1)
             if verbose:

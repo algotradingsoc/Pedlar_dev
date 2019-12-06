@@ -1,6 +1,16 @@
 # Pedlar_dev
 New pedlar under development. This is NOT the official version that has support 
 
+# Overview 
+
+There are 3 folders for this repo 
+
+pedlar folder is the core engine that is responsible for running the trading agents on live and backtest data 
+
+pedlarserver folder is for the database that will store all the performance submitted by trading agents 
+
+pedlarweb folder is for the website that shows the leaderboard for the performance 
+
 # Existing issues with pedlar
 
 Currently, there are three major problems in pedlar that we need to address. 
@@ -29,3 +39,6 @@ At each timestamp, the portfolio value is the weighted sum of holdings with cash
 The building of data history, rebalancing of portfolio and keeping trade records are now done by the package at the backend. 
  
 
+# Design of pedlar database 
+
+MongoDB running on AWS instance 

@@ -20,6 +20,7 @@ def add_trade_record():
 def user_record():
     req_data = request.get_json()
     user = req_data.get('user', 0)
+    agent = req_data.get('agent', 'sample')
     # check if exist in Mongo 
     usertable = db['Users']
     existing_user_no = db['Users'].count()
