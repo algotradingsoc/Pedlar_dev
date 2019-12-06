@@ -74,9 +74,9 @@ class Agent:
                                                                          fromfile_prefix_chars='@',
                                                                          parents=parents or list())
         parser.add_argument("-u", "--username", default="nobody", help="Pedlar Web username.")
-        parser.add_argument("-t", "--truefxid", default="", help="Username for Truefx")
+        parser.add_argument("-f", "--truefxid", default="", help="Username for Truefx")
         parser.add_argument("-p", "--truefxpassword", default="", help="Truefc password.")
-        parser.add_argument("-m", "--pedlarurl", default="", help="Algosoc Server")
+        parser.add_argument("-s", "--pedlarurl", default="", help="Algosoc Server")
         return cls(**vars(parser.parse_args()))
 
 
@@ -123,21 +123,15 @@ class Agent:
         self.history.to_csv(pricefilename)
         self.history_trades = pd.concat(self.holdings,axis=0)
         self.history_trades.to_csv(tradefilename)
-        # upload trades for a tradesession 
-        if self.connection and False:
-            self.trades['backtest_id'] = self.tradesession
-            self.trades['entrytime'] = self.trades['entrytime'].astype(np.int64)/1000000
-            self.trades['exittime'] = self.trades['exittime'].astype(np.int64)/1000000
-            self.trades.reset_index(inplace=True)
-            trades = self.trades.to_dict(orient='record')
-            for t in trades:
-                r = requests.post(self.endpoint+'/trade', json=t)
+
         return None 
 
     def create_portfolio(self, tickerlist=None, verbose=False):
 
         if tickerlist is None:
-            tickerlist = [('TrueFX','GBP/USD'), ('TrueFX','EUR/USD'), ('IEX','SPY'), ('IEX','QQQ')]
+            tickerlist = [('TrueFX','GBP/USD'), ('TrueFX','EUR/USD'), ('TrueFX','USD/JPY'),('TrueFX','EUR/GBP'),
+                        ('TrueFX','USD/CHF'),('TrueFX','EUR/JPY'),('TrueFX','EUR/CHF'),('TrueFX','USD/CAD'),
+                        ('TrueFX','AUD/USD'),('TrueFX','GBP/JPY'),('IEX','SPY'), ('IEX','QQQ')]
 
         self.portfolio = pd.DataFrame(columns=['volume'], index=pd.MultiIndex.from_tuples(tickerlist, names=('exchange', 'ticker'))) 
         self.portfolio['volume'] = 0
@@ -162,10 +156,20 @@ class Agent:
         iexdata = iex.get_TOPS(self.iextickernames)
         return truefxdata, iexdata
 
-    def update_history(self, verbose=False):
-        # get raw data 
-        truefx, iex = self.download_tick()
+    def extract_tick(self):
+
+        return truefxdata, iexdata 
+
+    def update_history(self, backtest=False, verbose=False):
+        
+        if backtest:
+            truefx, iex = self.extract_tick()
+        else:
+            # get raw data live
+            truefx, iex = self.download_tick()
+        
         self.historysize = truefx.shape[0] + iex.shape[0]
+
 
         # build order book 
         self.orderbook = pd.DataFrame(columns=Book).set_index(['exchange', 'ticker'])
@@ -181,7 +185,7 @@ class Agent:
         self.history = self.history[~self.history.index.duplicated(keep='first')]
 
         # Remove old data in price history
-        self.maxlookup = 5
+        self.maxlookup = 200
         self.history = self.history.iloc[-self.maxlookup*self.historysize:,:]
          
 
@@ -204,8 +208,6 @@ class Agent:
         self.holdings_change = new_weights - self.portfolio
         # perform orders wrt to cash 
         # check asset allocation limit 
-        self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
-        self.caplim = self.portfoval * 2
         self.abspos = np.sum(np.abs(new_weights['volume']) * self.orderbook['mid']) + self.cash
         if self.abspos > self.caplim:
             raise ValueError('Portfolio allocation cannot exceed capital limit')
@@ -220,7 +222,7 @@ class Agent:
 
 
 
-    def run_agents(self, verbose=False):
+    def run_live(self, verbose=False):
 
         self.start_agent(verbose)
         
@@ -231,7 +233,7 @@ class Agent:
         new_weights = self.portfolio
 
         while self.step < self.maxsteps:
-            self.update_history(False)
+            self.update_history(verbose=False)
             self.rebalance(new_weights)
             # Run user provided function to get target portfolio weights for the next data
             if not self.ondatauserparms:
@@ -249,6 +251,42 @@ class Agent:
         
         self.save_record()
 
+    def run_backtest(self, backtestfile=None, verbose=False):
+
+        self.start_agent(verbose)
+        
+        if verbose:
+            print(self.portfolio)
+
+        # starting portfolio with zero holding 
+        new_weights = self.portfolio
+
+        # Read backtest csv file 
+        # sort and index by time 
+
+        while self.step < self.maxsteps:
+            self.update_history(backtest=True,verbose=False)
+            self.rebalance(new_weights)
+            # Run user provided function to get target portfolio weights for the next data
+            if not self.ondatauserparms:
+                self.ondatauserparms = {}
+            new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, trades=self.trades, caplim=self.caplim, **self.ondatauserparms)
+            # update capital allocation limit 
+            self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
+            self.caplim = self.portfoval * 2 
+            # Move to next tick 
+            self.step += 1
+            time.sleep(1)
+            if verbose:
+                print('Step {} {}'.format(self.step, self.portfoval))
+                print()
+                print('Portfolio')
+                print(self.portfolio)
+                print()
+        # Do not upload to server for backtest 
+        self.connection = False
+        self.save_record()
+
 if __name__=='__main__':
 
     def ondata(step, history, portfolio, trades, caplim):
@@ -258,7 +296,7 @@ if __name__=='__main__':
         return target_portfolio
 
     agent = Agent(ondatafunc=ondata)
-    agent.run_agents(verbose=True)
+    agent.run_live(verbose=True)
 
 
             
