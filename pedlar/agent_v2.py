@@ -16,6 +16,7 @@ import requests
 # Datafeed functions 
 import truefx
 import iex
+import portcalc
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class Agent:
     
 
     def __init__(self, maxsteps=100, universefunc=None, ondatafunc=None, ondataparams=None,
-    username="nobody", agnetname='myfirstagent' truefxid='', truefxpassword='', pedlarurl='http://127.0.0.1:5000'):
+    username="nobody", agentname='myfirstagent', truefxid='', truefxpassword='', pedlarurl='http://127.0.0.1:5000'):
         
         self.endpoint = pedlarurl
         self.username = username  
@@ -48,6 +49,7 @@ class Agent:
         self.orderbook = pd.DataFrame(columns=Book).set_index(['exchange', 'ticker'])
         # List of holding history to be merge at the end of trading session 
         self.holdingshistory = []
+        self.pnlhistory = [] 
 
         # caplim is the max amount of capital allocated 
         # shorting uses up caplim but gives cash 
@@ -167,7 +169,7 @@ class Agent:
         self.history = self.history[~self.history.index.duplicated(keep='first')]
 
         # Remove old data in price history
-        self.maxlookup = 200
+        self.maxlookup = 1000
         self.history = self.history.iloc[-self.maxlookup*self.historysize:,:]
 
         if verbose:
@@ -209,8 +211,8 @@ class Agent:
             self.tradesession = r.json()['tradesession']
         time_format = "%Y_%m_%d_%H_%M_%S" # datetime column format
         timestamp = datetime.now().strftime(time_format)
-        pricefilename = 'Historical_Price_{}.csv'.format(self.tradesession)
-        tradefilename = 'Trade_Record_{}.csv'.format(self.tradesession)
+        pricefilename = 'Historical_Price_{}_{}.csv'.format(self.agentname,self.step)
+        tradefilename = 'Trade_Record_{}_{}.csv'.format(self.agentname,self.step)
         # save price history 
         self.history.to_csv(pricefilename)
         self.history_trades = pd.concat(self.holdingshistory,axis=0)
@@ -235,10 +237,18 @@ class Agent:
             if not self.ondatauserparms:
                 self.ondatauserparms = {}
             new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, trades=self.trades, caplim=self.caplim, **self.ondatauserparms)
+            # Update portfolio characteristics 
             self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
-            self.pnl = self.portfoval - self.startcash 
+            self.pnl = self.portfoval - self.cash 
+            self.pnlhistory.append(self.portfoval)
+            self.sharpe = portcalc.sharpe_ratio(self.pnlhistory)
+            print(self.sharpe)
             self.step += 1
             time.sleep(1)
+            if self.step % 1000 == 999:
+                self.save_record()
+                self.holdingshistory = []
+                self.pnlhistory = [] 
             if verbose:
                 print('Step {} {}'.format(self.step, self.portfoval))
                 print()
