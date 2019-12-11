@@ -1,6 +1,6 @@
 """pedlarweb data models."""
 import datetime
-from . import bcrypt, db, login_manager, app
+
 
 
 class User(db.Model):
@@ -81,5 +81,5 @@ class Order(db.Model):
     return self.price_open - (self.price_close or 0)
 
 # Check for in memory database
-if app.config['SQLALCHEMY_DATABASE_URI'] == "sqlite://":
+if server.config['SQLALCHEMY_DATABASE_URI'] == "sqlite://":
   db.create_all()

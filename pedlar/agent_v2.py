@@ -206,7 +206,7 @@ class Agent:
     def save_record(self):
         # upload to pedlar server 
         if self.connection:
-            payload = {'user_id':self.username,'pnl':self.pnl}
+            payload = {'user_id':self.username,'agent':self.agentname, 'tradesession':self.tradesession, 'pnl':self.pnl, 'sharpe':self.sharpe}
             r = requests.post(self.endpoint+"/tradesession", json=payload)
             self.tradesession = r.json()['tradesession']
         time_format = "%Y_%m_%d_%H_%M_%S" # datetime column format
@@ -242,7 +242,6 @@ class Agent:
             self.pnl = self.portfoval - self.cash 
             self.pnlhistory.append(self.portfoval)
             self.sharpe = portcalc.sharpe_ratio(self.pnlhistory)
-            print(self.sharpe)
             self.step += 1
             time.sleep(1)
             if self.step % 1000 == 999:
@@ -299,7 +298,7 @@ if __name__=='__main__':
     def ondata(step, history, portfolio, trades, caplim):
         target_portfolio = portfolio.copy()
         # calculate target portfolio which is random for this example
-        target_portfolio['volume'] = (np.random.random() - 0.5) * 100
+        target_portfolio['volume'] = 5
         return target_portfolio
 
     agent = Agent(ondatafunc=ondata)
