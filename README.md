@@ -42,3 +42,11 @@ The building of data history, rebalancing of portfolio and keeping trade records
 # Design of pedlar database 
 
 MongoDB running on AWS instance 
+
+# Design of pedlar webpage 
+
+How to start server 
+
+```bash
+gunicorn --worker-class eventlet -w 1 pedlarweb:app 	
+```	```

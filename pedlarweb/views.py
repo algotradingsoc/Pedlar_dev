@@ -100,20 +100,16 @@ def trade():
   resp = broker.handle(req)
   if resp['retcode'] == 0 and req['action'] in (2, 3):
     # Record the new order
-    if req['action'] == 2:
-      otype = "BUY"
-    else:
-      otype = "SELL"
     order = Order(id=resp['order_id'], user_id=current_user.id,
-                  type=otype, agent=agent_name, price_open=round(resp['price'], 5),
-                  volume=req['volume'], exchange=req['exchange'], ticker=req['ticker'])
+                  type="BUY" if req['action'] == 2 else "SELL",
+                  agent=agent_name, price_open=round(resp['price'], 5),
+                  volume=req['volume'])
     db.session.add(order)
     db.session.commit()
     # Send order update
-    socketio.emit('order', rows_to_dicts([order], ['id', 'agent', 'type', 'exchange', 'ticker', 'price_open', 'volume',
+    socketio.emit('order', rows_to_dicts([order], ['id', 'agent', 'type', 'price_open', 'volume',
                                                    'price_close', 'profit', 'closed', 'created'])[0],
                   room=current_user.username)
-  
   elif resp['retcode'] == 0 and req['action'] == 1:
     # Close the recorded order
     order = Order.query.get_or_404(req['order_id'])
@@ -125,7 +121,7 @@ def trade():
     # Send leaderboard update
     socketio.emit('leaderboard', get_leaders())
     # Send order update
-    socketio.emit('order', rows_to_dicts([order], ['id', 'agent', 'type', 'exchange', 'ticker', 'price_open', 'volume',
+    socketio.emit('order', rows_to_dicts([order], ['id', 'agent', 'type', 'price_open', 'volume',
                                                    'price_close', 'profit', 'closed', 'created'])[0],
                   room=current_user.username)
   return jsonify(resp)
