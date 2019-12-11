@@ -47,6 +47,18 @@ MongoDB running on AWS instance
 
 How to start server 
 
-```bash
 gunicorn --worker-class eventlet -w 1 pedlarweb:app 	
-```	```
+
+
+Tasks to do 
+
+Keep socket.io for discussion group and leaderboard 
+
+New price graphs is a dash application that stores to most recent data updating itself 
+
+New PnL graph is updated 
+
+New table of portfolio weights updated from 
+
+
+
