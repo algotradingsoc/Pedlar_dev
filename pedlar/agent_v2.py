@@ -35,7 +35,7 @@ class Agent:
     
 
     def __init__(self, maxsteps=100, universefunc=None, ondatafunc=None, ondataparams=None,
-    username="nobody", agentname='myfirstagent', truefxid='', truefxpassword='', pedlarurl='http://127.0.0.1:5000'):
+    username="nobody", agentname='myfirstagent', truefxid='', truefxpassword='', pedlarurl='https://pedlardev.herokuapp.com/'):
         
         self.endpoint = pedlarurl
         self.username = username  
@@ -283,6 +283,9 @@ class Agent:
             # Move to next tick 
             self.step += 1
             time.sleep(1)
+            # update leaderboard
+            if self.step % 50 == 49 and self.connection:
+
             if verbose:
                 print('Step {} {}'.format(self.step, self.portfoval))
                 print()

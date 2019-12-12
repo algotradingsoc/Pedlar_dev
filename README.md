@@ -45,20 +45,19 @@ MongoDB running on AWS instance
 
 # Design of pedlar webpage 
 
-How to start server 
+Leaderboard, update on demand from MongoDB but not regualarly (reduce data transfer) 
+Agents will send performance to leaderboard for every 50 data points and at the end of the backtest 
 
-gunicorn --worker-class eventlet -w 1 pedlarweb:app 	
+
+Orderbook, a separate orderbook for iex where users can select tickers to display 
 
 
-Tasks to do 
+Each table is an independent plotly application that are updated regularly. Leaderboard is fetched from MongoDB (free tier 500 MB) and TrueFx data is updated every second
 
-Keep socket.io for discussion group and leaderboard 
+The website is deployed using free tier service of Heroku
 
-New price graphs is a dash application that stores to most recent data updating itself 
 
-New PnL graph is updated 
 
-New table of portfolio weights updated from 
 
 
 

@@ -61,6 +61,47 @@ def main_page():
     return render_template('index.html')
 
 
+# create new backtest record 
+
+@server.route("/user", methods=['POST'])
+def user_record():
+    client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
+    db = client['Pedlar_dev']
+    req_data = request.get_json()
+    user = req_data.get('user', 0)
+    agent = req_data.get('agent', 'sample')
+    # check if exist in Mongo 
+    usertable = db['Users']
+    targetuser = usertable.find_one({'user_id':user})
+    # compute tradesession id 
+    tradesessionid = 0
+    if targetuser is None:
+        exist = False
+        #usertable.insert_one({'user_id': new_user_id})
+        #backtest_table.insert_one({'user_id':new_user_id, 'agent':agent, 'backtest_id':tradesessionid})
+        return jsonify(username=new_user_id, exist=exist, tradesession=tradesessionid)
+    else:
+        exist = True
+        #backtest_table.insert_one({'user_id':user, 'agent':agent, 'backtest_id':tradesessionid})
+        return jsonify(username=user, exist=exist, tradesession=tradesessionid)
+
+# update leaderboard after backtest 
+@server.route("/tradesession", methods=['POST'])
+def tradesession():
+    client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
+    db = client['Pedlar_dev']
+    req_data = request.get_json()
+    user = req_data.get('user_id', 0)
+    agent = req_data.get('agent', 'sample')
+    tradesessionid = req_data.get('tradesession', 0)
+    pnl = req_data.get('pnl', -10000)
+    sharpe = req_data.get('sharpe', -100)
+    # Add to leaderboard table 
+    leaderboard = db['Leaderboard']
+    leaderboard.update_one( {'backtest_id':tradesessionid} , {"$set":{'user_id':user, 'agent':agent, 'backtest_id':tradesessionid, 'pnl':pnl, 'sharpe':sharpe}}, upsert=True)
+    return jsonify(username=user, tradesession=tradesessionid)
+
+
 # Plotly Applications
 
 @server.route('/leaderboard')
@@ -109,7 +150,6 @@ def update_leaderboard(n):
     client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
     data = mongo2df(client,'Pedlar_dev','Leaderboard')
     names = data.columns 
-    print(names)
     return [{"name": i, "id": i} for i in names]
   
 
@@ -145,7 +185,6 @@ def update_orderbook(n):
     session, session_data, flag_parse_data, authrorize = pedlar.truefx.config(api_format ='csv', flag_parse_data = True)
     truefxdata = pedlar.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
     names = truefxdata.columns 
-    print(names)
     return [{"name": i, "id": i} for i in names]
 
 
