@@ -19,7 +19,7 @@ import dash_table
 # datafeed functions 
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'pedlar'))
-import iex,truefx
+import pedlar.iex,pedlar.truefx
 
 # database
 # TO-DO push password to env var 
