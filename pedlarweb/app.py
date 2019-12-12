@@ -108,6 +108,7 @@ def update_leaderboard(n):
         client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
         data = mongo2df(client,'Pedlar_dev','Leaderboard')
         names = data.columns 
+        print(names)
         return [{"name": i, "id": i} for i in names]
     except:
         return []
@@ -145,6 +146,7 @@ def update_orderbook(n):
         session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True)
         truefxdata = truefx.read_tick(session, session_data, flag_parse_data, authrorize)
         names = truefxdata.columns 
+        print(names)
         return [{"name": i, "id": i} for i in names]
     except:
         return []
