@@ -5,7 +5,7 @@ pandas
 # Web
 flask
 dash
-dash-tables
+dash-table
 werkzeug
 gunicorn
 
