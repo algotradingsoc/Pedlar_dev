@@ -83,17 +83,14 @@ class Agent:
 
     def start_agent(self, verbose=False):
         # create user profile in MongoDB if not exist 
-        try:
+        if self.connection:
             payload = {'user':self.username,'agent':self.agentname}
             r = requests.post(self.endpoint+"/user", json=payload)
             data = r.json()
-            if data['exist']:
-                print('Existing user {} found'.format(data['username']))
-            self.username = data['username']
-            self.connection = True
             self.tradesession = data['tradesession']
-        except:
-            self.connection = False
+            print('Tradesession: {}'.format(self.tradesession))
+            print('User: {} Agent: {}'.format(self.username,self.agentname))
+            print()
         # create truefx session 
         session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True)
         self.truefxsession = session
@@ -150,7 +147,6 @@ class Agent:
         if backtest:
             truefx, iex = self.extract_tick()
         else:
-            # get raw data live
             truefx, iex = self.download_tick()
         
         self.historysize = truefx.shape[0] + iex.shape[0]
@@ -222,10 +218,8 @@ class Agent:
 
     def run_live(self, verbose=False):
 
+        self.connection = True
         self.start_agent(verbose)
-        
-        if verbose:
-            print(self.portfolio)
 
         # starting portfolio with zero holding 
         new_weights = self.portfolio
@@ -241,10 +235,13 @@ class Agent:
             self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
             self.pnl = self.portfoval - self.cash 
             self.pnlhistory.append(self.portfoval)
-            self.sharpe = portcalc.sharpe_ratio(self.pnlhistory)
+            if self.step >0:
+                self.sharpe = portcalc.sharpe_ratio(self.pnlhistory)
+            else:
+                self.sharpe = 0 
             self.step += 1
             time.sleep(1)
-            if self.step % 1000 == 999:
+            if self.step % 200 == 199:
                 self.save_record()
                 self.holdingshistory = []
                 self.pnlhistory = [] 
@@ -259,6 +256,7 @@ class Agent:
 
     def run_backtest(self, backtestfile=None, verbose=False):
 
+        self.connection = False
         self.start_agent(verbose)
         
         if verbose:
@@ -283,9 +281,6 @@ class Agent:
             # Move to next tick 
             self.step += 1
             time.sleep(1)
-            # update leaderboard
-            if self.step % 50 == 49 and self.connection:
-
             if verbose:
                 print('Step {} {}'.format(self.step, self.portfoval))
                 print()
@@ -304,7 +299,7 @@ if __name__=='__main__':
         target_portfolio['volume'] = 5
         return target_portfolio
 
-    agent = Agent(ondatafunc=ondata)
+    agent = Agent(ondatafunc=ondata,pedlarurl='http://127.0.0.1:5000')
     agent.run_live(verbose=True)
 
 

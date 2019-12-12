@@ -5,7 +5,7 @@ import pandas as pd
 
 # Setting up multiple apps
 from dash import Dash
-from werkzeug.wsgi import DispatcherMiddleware
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from flask import Flask, render_template, redirect, url_for, request, jsonify
 from werkzeug.serving import run_simple
 from flask import render_template, redirect, url_for, request, jsonify
@@ -18,10 +18,13 @@ import dash_table
 
 # datafeed functions 
 import sys, os
-sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'pedlar'))
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'pedlaragent'))
 sys.path.append(os.path.dirname(sys.path[0]))
-print(sys.path)
-import pedlar.iex,pedlar.truefx
+
+
+import pedlaragent.iex, pedlaragent.truefx 
+
+
 
 # database
 # TO-DO push password to env var 
@@ -65,29 +68,21 @@ def main_page():
 
 @server.route("/user", methods=['POST'])
 def user_record():
+    password = os.environ.get('algosocdbpw', 'algosocadmin')
     client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
     db = client['Pedlar_dev']
     req_data = request.get_json()
-    user = req_data.get('user', 0)
+    user = req_data.get('user', 'sample')
     agent = req_data.get('agent', 'sample')
-    # check if exist in Mongo 
-    usertable = db['Users']
-    targetuser = usertable.find_one({'user_id':user})
     # compute tradesession id 
-    tradesessionid = 0
-    if targetuser is None:
-        exist = False
-        #usertable.insert_one({'user_id': new_user_id})
-        #backtest_table.insert_one({'user_id':new_user_id, 'agent':agent, 'backtest_id':tradesessionid})
-        return jsonify(username=new_user_id, exist=exist, tradesession=tradesessionid)
-    else:
-        exist = True
-        #backtest_table.insert_one({'user_id':user, 'agent':agent, 'backtest_id':tradesessionid})
-        return jsonify(username=user, exist=exist, tradesession=tradesessionid)
+    tradesessionid = db['Counter'].find_one({})['counter'] + 1 
+    db['Counter'].update_one({},{"$set":{'counter':tradesessionid}})
+    return jsonify(username=user, tradesession=tradesessionid)
 
 # update leaderboard after backtest 
 @server.route("/tradesession", methods=['POST'])
 def tradesession():
+    password = os.environ.get('algosocdbpw', 'algosocadmin')
     client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
     db = client['Pedlar_dev']
     req_data = request.get_json()
@@ -129,7 +124,7 @@ dash_app1.layout = html.Div(children=[
     ),
     dcc.Interval(
         id='interval-leaderboard',
-        interval=5*1000, # in milliseconds
+        interval=1000000, # in milliseconds
         n_intervals=0
     )
 ])
@@ -182,8 +177,8 @@ dash_app2.layout = html.Div(children=[
 @dash_app2.callback(Output('orderbook', 'columns'),
               [Input('interval-orderbook', 'n_intervals')])
 def update_orderbook(n):
-    session, session_data, flag_parse_data, authrorize = pedlar.truefx.config(api_format ='csv', flag_parse_data = True)
-    truefxdata = pedlar.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
+    session, session_data, flag_parse_data, authrorize = pedlaragent.truefx.config(api_format ='csv', flag_parse_data = True)
+    truefxdata = pedlaragent.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
     names = truefxdata.columns 
     return [{"name": i, "id": i} for i in names]
 
@@ -192,8 +187,8 @@ def update_orderbook(n):
               [Input('interval-orderbook', 'n_intervals')])
 def update_orderbook_data(n):
     try:
-        session, session_data, flag_parse_data, authrorize = pedlar.truefx.config(api_format ='csv', flag_parse_data = True)
-        truefxdata = pedlar.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
+        session, session_data, flag_parse_data, authrorize = pedlaragent.truefx.config(api_format ='csv', flag_parse_data = True)
+        truefxdata = pedlaragent.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
         df = truefxdata 
         return df.to_dict('records')
     except:
