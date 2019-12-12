@@ -83,11 +83,6 @@ dash_app1.layout = html.Div(children=[
     dash_table.DataTable(
     id='leaderboard',
     columns=[],
-    pagination_settings={
-        'current_page': 0,
-        'page_size': 20
-    },
-    pagination_mode='be'
     ),
     dcc.Interval(
         id='interval-leaderboard',
@@ -134,11 +129,6 @@ dash_app2.layout = html.Div(children=[
     dash_table.DataTable(
     id='orderbook',
     columns=[],
-    pagination_settings={
-        'current_page': 0,
-        'page_size': 20
-    },
-    pagination_mode='be'
     ),
     dcc.Interval(
         id='interval-orderbook',
