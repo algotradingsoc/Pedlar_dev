@@ -1,7 +1,6 @@
 # Trading
 requests
 
-
 # Web
 flask
 dash

@@ -101,6 +101,6 @@ app = DispatcherMiddleware(server, {
 if __name__ == "__main__":
     live = False
     if live:
-        run_simple('127.0.0.1', 8000, app, use_reloader=False, use_debugger=True)
+        run_simple('127.0.0.1', 5000, app, use_reloader=False, use_debugger=True)
     else:
-        run_simple('127.0.0.1', 8000, app, use_reloader=False, use_debugger=True)
+        run_simple('127.0.0.1', 5000, app, use_reloader=False, use_debugger=True)

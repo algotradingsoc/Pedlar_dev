@@ -1,1 +1,1 @@
-web: gunicorn pedlarweb:app
+web: gunicorn pedlarweb.app:server
