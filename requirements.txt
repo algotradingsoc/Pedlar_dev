@@ -6,6 +6,7 @@ requests
 flask
 dash
 werkzeug
+gunicorn
 
 # Database
 pymongo 
