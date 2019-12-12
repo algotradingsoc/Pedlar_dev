@@ -19,6 +19,8 @@ import dash_table
 # datafeed functions 
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'pedlar'))
+sys.path.append(os.path.dirname(sys.path[0]))
+print(sys.path)
 import pedlar.iex,pedlar.truefx
 
 # database
@@ -140,8 +142,8 @@ dash_app2.layout = html.Div(children=[
 @dash_app2.callback(Output('orderbook', 'columns'),
               [Input('interval-orderbook', 'n_intervals')])
 def update_orderbook(n):
-    session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True)
-    truefxdata = truefx.read_tick(session, session_data, flag_parse_data, authrorize)
+    session, session_data, flag_parse_data, authrorize = pedlar.truefx.config(api_format ='csv', flag_parse_data = True)
+    truefxdata = pedlar.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
     names = truefxdata.columns 
     print(names)
     return [{"name": i, "id": i} for i in names]
@@ -151,8 +153,8 @@ def update_orderbook(n):
               [Input('interval-orderbook', 'n_intervals')])
 def update_orderbook_data(n):
     try:
-        session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True)
-        truefxdata = truefx.read_tick(session, session_data, flag_parse_data, authrorize)
+        session, session_data, flag_parse_data, authrorize = pedlar.truefx.config(api_format ='csv', flag_parse_data = True)
+        truefxdata = pedlar.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
         df = truefxdata 
         return df.to_dict('records')
     except:
