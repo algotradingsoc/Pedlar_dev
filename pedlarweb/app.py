@@ -140,14 +140,12 @@ dash_app2.layout = html.Div(children=[
 @dash_app2.callback(Output('orderbook', 'columns'),
               [Input('interval-orderbook', 'n_intervals')])
 def update_orderbook(n):
-    try:
-        session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True)
-        truefxdata = truefx.read_tick(session, session_data, flag_parse_data, authrorize)
-        names = truefxdata.columns 
-        print(names)
-        return [{"name": i, "id": i} for i in names]
-    except:
-        return []
+    session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True)
+    truefxdata = truefx.read_tick(session, session_data, flag_parse_data, authrorize)
+    names = truefxdata.columns 
+    print(names)
+    return [{"name": i, "id": i} for i in names]
+
 
 @dash_app2.callback(Output('orderbook', 'data'),
               [Input('interval-orderbook', 'n_intervals')])
