@@ -103,15 +103,13 @@ def update_leaderboard_header(n):
 @dash_app1.callback(Output('leaderboard', 'columns'),
               [Input('interval-leaderboard', 'n_intervals')])
 def update_leaderboard(n):
-    try:
-        password = os.environ.get('algosocdbpw', 'algosocadmin')
-        client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
-        data = mongo2df(client,'Pedlar_dev','Leaderboard')
-        names = data.columns 
-        print(names)
-        return [{"name": i, "id": i} for i in names]
-    except:
-        return []
+    password = os.environ.get('algosocdbpw', 'algosocadmin')
+    client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
+    data = mongo2df(client,'Pedlar_dev','Leaderboard')
+    names = data.columns 
+    print(names)
+    return [{"name": i, "id": i} for i in names]
+  
 
 @dash_app1.callback(Output('leaderboard', 'data'),
               [Input('interval-leaderboard', 'n_intervals')])
