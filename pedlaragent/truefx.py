@@ -167,7 +167,7 @@ def read_tick(session,session_data,flag_parse_data,authrozied):
 
 def config(symbols='', 
           username='', password='', 
-          force_unregistered='', expire_after='-1', snapshot=True, api_format = 'csv',flag_parse_data = True):
+          force_unregistered=False, expire_after='-1', snapshot=True, api_format = 'csv',flag_parse_data = True):
     session = _get_session(expire_after)
     username, password = _init_credentials(username, password)
     is_registered = _is_registered(username, password)

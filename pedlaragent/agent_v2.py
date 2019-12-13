@@ -35,6 +35,9 @@ class Agent:
     def __init__(self, maxsteps=20, universe=None, ondatafunc=None, ondataparams=None,
     username="nobody", agentname='myfirstagent', truefxid='', truefxpassword='', pedlarurl='https://pedlardev.herokuapp.com/'):
         
+        self.truefxid = truefxid
+        self.truefxpassword = truefxpassword
+
         self.maxlookup = 1000
         self.tradesession = 0
         self.endpoint = pedlarurl
@@ -87,7 +90,7 @@ class Agent:
             print('User: {} Agent: {}'.format(self.username,self.agentname))
             print()
         # create truefx session 
-        session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True)
+        session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True, username=self.truefxid, password=self.truefxpassword)
         self.truefxsession = session
         self.truefxsession_data = session_data
         self.truefxparse = flag_parse_data
@@ -209,8 +212,8 @@ class Agent:
             self.tradesession = r.json()['tradesession']
         time_format = "%Y_%m_%d_%H_%M_%S" # datetime column format
         timestamp = datetime.now().strftime(time_format)
-        pricefilename = 'Historical_Price_{}_{}.csv'.format(self.agentname,self.step)
-        tradefilename = 'Portfolio_Holdings_{}_{}.csv'.format(self.agentname,self.step)
+        pricefilename = 'Historical_Price_{}_{}_Step_{}.csv'.format(self.agentname,self.tradesession,self.step)
+        tradefilename = 'Portfolio_Holdings_{}_{}_Step_{}.csv'.format(self.agentname,self.tradesession,self.step)
         # save price history 
         self.history.to_csv(pricefilename)
         self.history_trades = pd.concat(self.holdingshistory,axis=0)

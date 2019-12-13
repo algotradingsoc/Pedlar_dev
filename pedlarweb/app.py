@@ -2,6 +2,7 @@
 
 import datetime 
 import pandas as pd 
+import requests 
 
 # Setting up multiple apps
 from dash import Dash
@@ -43,7 +44,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', '/static/m
 # Setting up dash applications
 dash_app1 = Dash(__name__, server = server, url_base_pathname='/leaderboard/', external_stylesheets=external_stylesheets )
 dash_app2 = Dash(__name__, server = server, url_base_pathname='/orderbook/', external_stylesheets=external_stylesheets )
-dash_app3 = Dash(__name__, server = server, url_base_pathname='/sample/', external_stylesheets=external_stylesheets )
+dash_app3 = Dash(__name__, server = server, url_base_pathname='/iex/', external_stylesheets=external_stylesheets )
 
 
 # mongo functions 
@@ -161,10 +162,11 @@ def update_leaderboard_data(n):
 
 
 dash_app2.layout = html.Div(children=[
-    html.Span('Orderbook'),
+    html.Span('TrueFX Orderbook'),
     dash_table.DataTable(
     id='orderbook',
     columns=[],
+    data=[],
     ),
     dcc.Interval(
         id='interval-orderbook',
@@ -194,29 +196,59 @@ def update_orderbook_data(n):
     except:
         return []
 
-
+iex_table_cols = ['time', 'exchange', 'ticker', 'bid', 'ask', 'bidsize', 'asksize']
+iex_columns = [{"name": i, "id": i} for i in iex_table_cols]
 
 dash_app3.layout = html.Div(children=[
-    html.H1(children='Hello Dash'),
-
-    html.Div(children='''
-        Dash: A web application framework for Python.
-    '''),
-
-    dcc.Graph(
-        id='example-graph',
-        figure={
-            'data': [
-                {'x': [1, 2, 3], 'y': [4, 1, 2], 'type': 'bar', 'name': 'SF'},
-                {'x': [1, 2, 3], 'y': [2, 4, 5], 'type': 'bar', 'name': u'Montréal'},
-            ],
-            'layout': {
-                'title': 'Dash Data Visualization'
-            }
-        }
-    )
+    html.Span('IEX Orderbook'),
+    dcc.Dropdown(
+    id='iex-symbols',
+    options=[],
+    value=['SPY', 'QQQ'],
+    multi=True
+    ),
+    dash_table.DataTable(
+    id='iex',
+    columns=iex_columns,
+    data=[],
+    ),
+    dcc.Interval(
+        id='interval-iex',
+        interval=2*1000, # in milliseconds
+        n_intervals=0
+    ),
+    dcc.Interval(
+        id='interval-symbol',
+        interval=60*60*1000, # in milliseconds
+        n_intervals=0
+    ),
 ])
 
+
+@dash_app3.callback(Output('iex-symbols', 'options'),
+              [Input('interval-symbol', 'n_intervals')])
+def update_iex_symbol(n):
+    try:
+        iexbaseurl = 'https://api.iextrading.com/1.0'
+        iextopsurl = iexbaseurl + '/ref-data/symbols'
+        r = requests.get(iextopsurl)
+        data = pd.DataFrame(r.json())
+        df = pd.DataFrame()
+        df['label'] = data['name']
+        df['value'] = data['symbol']
+        return df.to_dict('records')
+    except:
+        return [{'label':'SPDR S&P 500 ETF TRUST','value':'SPY'}]
+
+@dash_app3.callback(Output('iex', 'data'),
+              [Input('interval-iex', 'n_intervals'),Input('iex-symbols','value')])
+def update_iex_data(n,tickers):
+    try:
+        query_string = ','.join(tickers)
+        df = pedlaragent.iex.get_TOPS(query_string) 
+        return df.to_dict('records')
+    except:
+        return []
 
 
 # Linking diffrent application

@@ -2,15 +2,23 @@
 
 {% block columns %}
 <!-- Left Column -->
-    <div id='leaderboard'>
-        <iframe src='/leaderboard' width="800" height="500" frameborder="0" ALLOWTRANSPARENCY="true"></iframe>
-    </div>
+  <div id='leaderboard' >
+      <iframe src='/leaderboard' width="800" height="500" frameborder="0" ALLOWTRANSPARENCY="true"></iframe>
+  </div>
 <!-- End Left Column -->
 
 <!-- Middle Row -->
   <!-- TrueFX -->
-<div id='leaderboard'>
-  <iframe src='/orderbook' width="700" height="700" frameborder="0" ALLOWTRANSPARENCY="true"></iframe>
+<div id='truefx'>
+  <iframe src='/orderbook' width="700" height="500" frameborder="0" ALLOWTRANSPARENCY="true"></iframe>
+  <br>
+  <iframe src='/iex' width="700" height="500" frameborder="0" ALLOWTRANSPARENCY="true"></iframe>
+  <div id='iexref'>
+    <a href="https://iextrading.com/developers">IEX Real-Time Price</a>
+    Data provided for free by <a href="https://iextrading.com/developers">IEX</a>. View <a href="https://iextrading.com/apiexhibita/">IEX&rsquo;s Terms of Use</a>
+  </div>
 </div>
 <!-- End Middle Row -->
+
+
 {% endblock %}
