@@ -153,7 +153,6 @@ class Agent:
             truefx, iex = self.extract_tick()
         else:
             truefx, iex = self.download_tick()
-        
         self.historysize = truefx.shape[0] + iex.shape[0]
 
         # build order book 
@@ -168,9 +167,7 @@ class Agent:
 
         # Ensure uniquess in price history
         self.history = self.history[~self.history.index.duplicated(keep='first')]
-
         # Remove old data in price history
-        
         self.history = self.history.iloc[-self.maxlookup*self.historysize:,:]
 
         if verbose:
@@ -182,10 +179,18 @@ class Agent:
         Input: new_weights: dataframe with same index as portfolio
         """
         # add historical holdingshistory
-        now = datetime.now()
+        time_format = "%Y_%m_%d_%H_%M_%S"
+        now = datetime.now().strftime(time_format)
         current_holdings = self.portfolio.transpose().set_index(np.array([now]))
-        current_holdings['PorftolioValue'] = self.portfoval
+        current_holdings['porftoliovalue'] = self.portfoval
         self.holdingshistory.append(current_holdings)
+        # send results to pedlar
+        if self.connection:
+            _payload = current_holdings.to_dict('record')[0] 
+            payload = dict([(k[0]+k[1],v) for k,v in _payload.items()])
+            user = {'user_id':self.username,'agent':self.agentname, 'tradesession':self.tradesession, 'time':now}
+            payload.update(user)
+            r = requests.post(self.endpoint+"/portfolio/"+str(self.tradesession), json=payload)
         # construct changes 
         self.holdings_change = new_weights - self.portfolio
         # perform orders wrt to cash 
@@ -233,9 +238,10 @@ class Agent:
             self.connection = False 
         
         self.start_agent(verbose)
-
         # starting portfolio with zero holding 
         new_weights = self.portfolio
+
+        
 
         while self.step < self.maxsteps:
             self.update_history(live=live,verbose=False)
@@ -268,7 +274,7 @@ class Agent:
                 print('Orderbook')
                 print(self.orderbook)
                 print()
-        
+        # save record at the end of backtest
         self.save_record()
 
 if __name__=='__main__':

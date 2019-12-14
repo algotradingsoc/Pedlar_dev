@@ -97,6 +97,22 @@ def tradesession():
     leaderboard.update_one( {'backtest_id':tradesessionid} , {"$set":{'user_id':user, 'agent':agent, 'backtest_id':tradesessionid, 'pnl':pnl, 'sharpe':sharpe}}, upsert=True)
     return jsonify(username=user, tradesession=tradesessionid)
 
+@server.route("/portfolio/<backtestid>", methods=['POST'])
+def portfolio(backtestid):
+    password = os.environ.get('algosocdbpw', 'algosocadmin')
+    client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
+    db = client['Pedlar_dev']
+    req_data = request.get_json()
+    tradesessionid = str(req_data.get('tradesession', 0))
+    # create capped collection 
+    if not str(tradesessionid) in db.list_collection_names():
+        db.create_collection(str(tradesessionid), capped=True, size=5000000, max=100)
+    portfolio = db[tradesessionid]
+    portfolio.insert_one(req_data)
+    return jsonify(tradesession=tradesessionid)
+
+
+
 
 # Plotly Applications
 
@@ -122,6 +138,11 @@ dash_app1.layout = html.Div(children=[
     dash_table.DataTable(
     id='leaderboard',
     columns=[],
+    style_table={
+        'height': '300px',
+        'overflowY': 'scroll',
+        'border': 'thin lightgrey solid'
+    },
     ),
     dcc.Interval(
         id='interval-leaderboard',
@@ -167,6 +188,11 @@ dash_app2.layout = html.Div(children=[
     id='orderbook',
     columns=[],
     data=[],
+    style_table={
+        'height': '900px',
+        'overflowY': 'scroll',
+        'border': 'thin lightgrey solid'
+    },
     ),
     dcc.Interval(
         id='interval-orderbook',
@@ -211,6 +237,11 @@ dash_app3.layout = html.Div(children=[
     id='iex',
     columns=iex_columns,
     data=[],
+    style_table={
+        'height': '300px',
+        'overflowY': 'scroll',
+        'border': 'thin lightgrey solid'
+    },
     ),
     dcc.Interval(
         id='interval-iex',

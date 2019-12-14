@@ -12,9 +12,15 @@
     </script>
     <!-- End of GA -->
     {% endif %}
+
+    <script>
+      function resizeIframe(obj) {
+        obj.style.height = obj.contentWindow.document.documentElement.scrollHeight + 'px';
+      }
+    </script>
+
     <title>Pedlar {% block title %}{% endblock %}</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
     <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-theme-blue.css">
@@ -29,7 +35,7 @@
       .w3-col.vl9{width:74.99999%}.w3-col.vl10{width:83.33333%}.w3-col.vl11{width:91.66666%}.w3-col.vl12{width:99.99999%}
     }
   </style>
-<body class="w3-theme-l5">
+<body>
 {% block body %}
 {% endblock %}
 </body>
