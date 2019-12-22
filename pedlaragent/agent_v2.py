@@ -188,6 +188,7 @@ class Agent:
         if self.connection:
             _payload = current_holdings.to_dict('record')[0] 
             payload = dict([(k[0]+k[1],v) for k,v in _payload.items()])
+            # wrap current orderbook value to dictionary 
             user = {'user_id':self.username,'agent':self.agentname, 'tradesession':self.tradesession, 'time':now}
             payload.update(user)
             r = requests.post(self.endpoint+"/portfolio/"+str(self.tradesession), json=payload)

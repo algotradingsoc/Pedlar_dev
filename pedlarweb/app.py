@@ -16,6 +16,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input,Output 
 import dash_table
+import plotly.graph_objs as go
 
 # datafeed functions 
 import sys, os
@@ -45,7 +46,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', '/static/m
 dash_app1 = Dash(__name__, server = server, url_base_pathname='/leaderboard/', external_stylesheets=external_stylesheets )
 dash_app2 = Dash(__name__, server = server, url_base_pathname='/orderbook/', external_stylesheets=external_stylesheets )
 dash_app3 = Dash(__name__, server = server, url_base_pathname='/iex/', external_stylesheets=external_stylesheets )
-
+dash_app4 = Dash(__name__, server = server, url_base_pathname='/pnl/', external_stylesheets=external_stylesheets )
 
 # mongo functions 
 def mongo2df(client,dbname,collectionname):
@@ -146,7 +147,7 @@ dash_app1.layout = html.Div(children=[
     ),
     dcc.Interval(
         id='interval-leaderboard',
-        interval=1000000, # in milliseconds
+        interval=1000*60, # in milliseconds
         n_intervals=0
     )
 ])
@@ -281,6 +282,80 @@ def update_iex_data(n,tickers):
     except:
         return []
 
+dash_app4.layout = html.Div(children=[
+    html.Span('Portfolio PnL'),
+    dcc.Dropdown(
+    id='backtest-ids',
+    options=[],
+    value=[],
+    multi=False
+    ),
+    dcc.Graph(
+        id='pnl-graph',
+        figure=dict(
+        data=[], 
+        layout=dict(
+            title='Portfolio value of most recent 10 trades',
+            showlegend=True,
+            legend=dict(
+                x=0,
+                y=1.0
+            ),
+            margin=dict(l=40, r=40, t=40, b=30)
+        )
+    ),
+    style={'height': 500},
+    ),
+    dcc.Interval(
+        id='interval-backtest',
+        interval=2*1000, # in milliseconds
+        n_intervals=0
+    ),
+])
+
+@dash_app4.callback(Output('backtest-ids', 'options'),
+              [Input('interval-backtest', 'n_intervals')])
+def update_backtest_ids(n):
+    try:
+        password = os.environ.get('algosocdbpw', 'algosocadmin')
+        client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
+        db = client['Pedlar_dev']
+        system_collections = ['Counter','Leaderboard']
+        all_collections = db.list_collection_names()
+        backtest_collections = list(set(all_collections)-set(system_collections))
+        df = pd.DataFrame()
+        df['label'] = backtest_collections
+        df['value'] = backtest_collections
+        return df.to_dict('records')
+    except:
+        return [{'label':'1','value':'1'}]
+
+
+@dash_app4.callback(Output('pnl-graph', 'figure'),
+              [Input('interval-backtest', 'n_intervals'),Input('backtest-ids', 'value')])
+def update_backtest_data(n,backtestid):
+    try:
+        password = os.environ.get('algosocdbpw', 'algosocadmin')
+        client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
+        selected = ['porftoliovalue']
+        dff = mongo2df(client,'Pedlar_dev',backtestid)
+        trace = []
+        for type in selected:
+            trace.append(go.Scatter(x=dff['time'], y=dff[type], name=backtestid, mode='lines',
+                                marker={'size': 8, "opacity": 0.6, "line": {'width': 0.5}}, ))
+        # layout of line graph 
+        _layout=dict(
+            title='PnL of most recent 10 trades',
+            showlegend=True,
+            legend=dict(
+                x=0,
+                y=1.0
+            ),
+            margin=dict(l=40, r=0, t=40, b=30)
+        )
+        return dict(data=trace, layout=_layout)
+    except:
+        return []
 
 # Linking diffrent application
 
@@ -288,6 +363,7 @@ app = DispatcherMiddleware(server, {
     '/dash1': dash_app1.server,
     '/dash2': dash_app2.server,
     '/dash3': dash_app3.server,
+    '/dash4': dash_app4.server,
 })
 
 if __name__ == "__main__":
