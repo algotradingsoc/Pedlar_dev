@@ -283,7 +283,7 @@ def update_iex_data(n,tickers):
         return []
 
 dash_app4.layout = html.Div(children=[
-    html.Span('Portfolio PnL'),
+    html.Span('Portfolio Value'),
     dcc.Dropdown(
     id='backtest-ids',
     options=[],
@@ -345,13 +345,13 @@ def update_backtest_data(n,backtestid):
                                 marker={'size': 8, "opacity": 0.6, "line": {'width': 0.5}}, ))
         # layout of line graph 
         _layout=dict(
-            title='PnL of most recent 10 trades',
+            title='Portfolio value of most recent 10 trades',
             showlegend=True,
             legend=dict(
                 x=0,
                 y=1.0
             ),
-            margin=dict(l=40, r=0, t=40, b=30)
+            margin=dict(l=150, r=50, t=50, b=150)
         )
         return dict(data=trace, layout=_layout)
     except:

@@ -247,13 +247,14 @@ class Agent:
         while self.step < self.maxsteps:
             self.update_history(live=live,verbose=False)
             self.rebalance(new_weights,verbose=verbose)
+            # Update capital limit 
+            self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
+            self.caplim = self.portfoval * 2 
             # Run user provided function to get target portfolio weights for the next data
             if not self.ondatauserparms:
                 self.ondatauserparms = {}
             new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio,  caplim=self.caplim, **self.ondatauserparms)
-            # Update capital limit 
-            self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
-            self.caplim = self.portfoval * 2 
+
             # portfolio performance 
             self.pnl = self.portfoval - self.cash 
             self.pnlhistory.append(self.portfoval)
