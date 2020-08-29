@@ -24,7 +24,7 @@ sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'pedlaragent'))
 sys.path.append(os.path.dirname(sys.path[0]))
 
 
-import pedlaragent.iex, pedlaragent.truefx 
+import pedlaragent.iex 
 
 
 
@@ -44,7 +44,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', '/static/m
 
 # Setting up dash applications
 dash_app1 = Dash(__name__, server = server, url_base_pathname='/leaderboard/', external_stylesheets=external_stylesheets )
-dash_app2 = Dash(__name__, server = server, url_base_pathname='/orderbook/', external_stylesheets=external_stylesheets )
+# dash_app2 = Dash(__name__, server = server, url_base_pathname='/orderbook/', external_stylesheets=external_stylesheets )
 dash_app3 = Dash(__name__, server = server, url_base_pathname='/iex/', external_stylesheets=external_stylesheets )
 dash_app4 = Dash(__name__, server = server, url_base_pathname='/pnl/', external_stylesheets=external_stylesheets )
 
@@ -121,16 +121,13 @@ def portfolio(backtestid):
 def render_dashboard():
     return redirect('/dash1')
 
-@server.route('/orderbook')
-def render_dashboard2():
-    return redirect('/dash2')
 
 @server.route('/sample')
 def render_dashboard3():
     return redirect('/dash3')
 
 @server.route('/pnl')
-def render_dashboard3():
+def render_dashboard4():
     return redirect('/dash4')
 
 # Dash samples 
@@ -186,45 +183,6 @@ def update_leaderboard_data(n):
         return []
 
 
-dash_app2.layout = html.Div(children=[
-    html.Span('TrueFX Orderbook'),
-    dash_table.DataTable(
-    id='orderbook',
-    columns=[],
-    data=[],
-    style_table={
-        'height': '900px',
-        'overflowY': 'scroll',
-        'border': 'thin lightgrey solid'
-    },
-    ),
-    dcc.Interval(
-        id='interval-orderbook',
-        interval=2*1000, # in milliseconds
-        n_intervals=0
-    )
-])
-
-
-@dash_app2.callback(Output('orderbook', 'columns'),
-              [Input('interval-orderbook', 'n_intervals')])
-def update_orderbook(n):
-    session, session_data, flag_parse_data, authrorize = pedlaragent.truefx.config(api_format ='csv', flag_parse_data = True)
-    truefxdata = pedlaragent.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
-    names = truefxdata.columns 
-    return [{"name": i, "id": i} for i in names]
-
-
-@dash_app2.callback(Output('orderbook', 'data'),
-              [Input('interval-orderbook', 'n_intervals')])
-def update_orderbook_data(n):
-    try:
-        session, session_data, flag_parse_data, authrorize = pedlaragent.truefx.config(api_format ='csv', flag_parse_data = True)
-        truefxdata = pedlaragent.truefx.read_tick(session, session_data, flag_parse_data, authrorize)
-        df = truefxdata 
-        return df.to_dict('records')
-    except:
-        return []
 
 iex_table_cols = ['time', 'exchange', 'ticker', 'bid', 'ask', 'bidsize', 'asksize']
 iex_columns = [{"name": i, "id": i} for i in iex_table_cols]
@@ -364,7 +322,6 @@ def update_backtest_data(n,backtestid):
 
 app = DispatcherMiddleware(server, {
     '/dash1': dash_app1.server,
-    '/dash2': dash_app2.server,
     '/dash3': dash_app3.server,
     '/dash4': dash_app4.server,
 })
