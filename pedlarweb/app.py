@@ -129,6 +129,9 @@ def render_dashboard2():
 def render_dashboard3():
     return redirect('/dash3')
 
+@server.route('/pnl')
+def render_dashboard3():
+    return redirect('/dash4')
 
 # Dash samples 
 
