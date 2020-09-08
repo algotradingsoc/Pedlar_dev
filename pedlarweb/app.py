@@ -306,7 +306,7 @@ def update_backtest_data(n,backtestid):
                                 marker={'size': 8, "opacity": 0.6, "line": {'width': 0.5}}, ))
         # layout of line graph 
         _layout=dict(
-            title='Portfolio value of most recent 10 trades',
+            title='Portfolio value',
             showlegend=True,
             legend=dict(
                 x=0,

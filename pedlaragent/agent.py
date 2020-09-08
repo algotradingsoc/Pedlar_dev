@@ -14,8 +14,8 @@ import numpy as np
 import requests
 
 # Datafeed functions 
-import iex
-import portcalc
+from . import iex
+from . import portcalc
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,8 @@ class Agent:
     
 
     def __init__(self, maxsteps=20, universe=None, ondatafunc=None, ondataparams=None,
-    username="nobody", agentname='myfirstagent', truefxid='', truefxpassword='', pedlarurl='https://pedlardev.herokuapp.com/'):
+    username="algosoc", agentname='random', pedlarurl='https://pedlardev.herokuapp.com/'):
         
-        self.truefxid = truefxid
-        self.truefxpassword = truefxpassword
 
         self.maxlookup = 1000
         self.tradesession = 0
@@ -58,7 +56,7 @@ class Agent:
         self.portfoval = 50000
         self.caplim = self.portfoval * 2
         self.pnl = 0
-        self.cash = 50000
+        self.cash = self.startcash
         
         # User defined functions 
         self.universe = universe
@@ -72,28 +70,21 @@ class Agent:
                                                                          fromfile_prefix_chars='@',
                                                                          parents=parents or list())
         parser.add_argument("-u", "--username", default="nobody", help="Pedlar Web username.")
-        parser.add_argument("-f", "--truefxid", default="", help="Username for Truefx")
-        parser.add_argument("-p", "--truefxpassword", default="", help="Truefc password.")
         parser.add_argument("-s", "--pedlarurl", default="", help="Algosoc Server")
         return cls(**vars(parser.parse_args()))
 
 
-    def start_agent(self, verbose=False):
+    def start_agent(self, verbose=True):
         # create user profile in MongoDB if not exist 
         if self.connection:
             payload = {'user':self.username,'agent':self.agentname}
             r = requests.post(self.endpoint+"/user", json=payload)
             data = r.json()
             self.tradesession = data['tradesession']
-            print('Tradesession: {}'.format(self.tradesession))
-            print('User: {} Agent: {}'.format(self.username,self.agentname))
-            print()
-        # create truefx session 
-        session, session_data, flag_parse_data, authrorize = truefx.config(api_format ='csv', flag_parse_data = True, username=self.truefxid, password=self.truefxpassword)
-        self.truefxsession = session
-        self.truefxsession_data = session_data
-        self.truefxparse = flag_parse_data
-        self.truefxauthorized = authrorize
+            if verbose:
+                print('Tradesession: {}'.format(self.tradesession))
+                print('User: {} Agent: {}'.format(self.username,self.agentname))
+                print()
         # connect to other datasource 
         # set up trading universe
         self.step = 0
@@ -124,42 +115,27 @@ class Agent:
         return None 
 
     def download_tick(self):
-        # implement methods to get price data in dataframes 
-        truefxdata = truefx.read_tick(self.truefxsession, self.truefxsession_data, self.truefxparse, self.truefxauthorized) 
-        truefxdata.set_index('ticker',inplace=True)
-        Reverse_pairs = ['USD/CHF','USD/JPY','USD/CAD']
-        for p in Reverse_pairs:
-            pinv = p[4:7] + '/' + p[0:3]
-            truefxdata.loc[pinv,:] = truefxdata.loc[p,:]
-            truefxdata.loc[pinv,'bid'] = 1 / truefxdata.loc[p,'bid']
-            truefxdata.loc[pinv,'ask'] = 1 / truefxdata.loc[p,'ask']
-        USD_based = ['GBP/USD','EUR/USD','JPY/USD','CHF/USD','CAD/USD','AUD/USD']
-        truefxdata = truefxdata.loc[USD_based]
-        truefxdata.reset_index(inplace=True)
         iexdata = iex.get_TOPS(self.iextickernames)
-        return truefxdata, iexdata
+        return iexdata
 
     def extract_tick(self):
-        truefxdata = pd.DataFrame()
         iexdata = pd.DataFrame()
-        return truefxdata, iexdata 
+        return iexdata 
 
     def update_history(self, live=True, verbose=False):
         
         if not live:
-            truefx, iex = self.extract_tick()
+           iex = self.extract_tick()
         else:
-            truefx, iex = self.download_tick()
-        self.historysize = truefx.shape[0] + iex.shape[0]
+           iex = self.download_tick()
+        self.historysize = iex.shape[0]
 
         # build order book 
         self.orderbook = pd.DataFrame(columns=Book).set_index(['exchange', 'ticker'])
-        self.orderbook = self.orderbook.append(truefx.set_index(['exchange', 'ticker']))
         self.orderbook = self.orderbook.append(iex.set_index(['exchange', 'ticker']))
         self.orderbook['mid'] = (self.orderbook['ask'] + self.orderbook['bid'])/2
 
         # update price history 
-        self.history = self.history.append(truefx.set_index(['time', 'exchange', 'ticker']))
         self.history = self.history.append(iex.set_index(['time', 'exchange', 'ticker']))
 
         # Ensure uniquess in price history
@@ -204,7 +180,9 @@ class Agent:
         # update to target holdings 
         self.portfolio = new_weights
         if verbose:
+            print('Transactions')
             print(self.holdings_change)
+            print('')
         return None 
 
     def save_record(self):
@@ -223,12 +201,12 @@ class Agent:
         self.history_trades.to_csv(tradefilename)
         return None 
 
-    def delay(self,n_seconds=2):
+    def delay(self,n_seconds=5):
         dt = datetime.now()
         time.sleep(n_seconds-dt.microsecond/1000000)
         return None
 
-    def run(self, live=True, verbose=False, backtestfile=None):
+    def run(self, live=True, verbose=False, backtestfile=None, n_seconds=5):
 
         if live:
             self.connection = True
@@ -239,8 +217,6 @@ class Agent:
         # starting portfolio with zero holding 
         new_weights = self.portfolio
 
-        
-
         while self.step < self.maxsteps:
             self.update_history(live=live,verbose=False)
             self.rebalance(new_weights,verbose=verbose)
@@ -250,10 +226,10 @@ class Agent:
             # Run user provided function to get target portfolio weights for the next data
             if not self.ondatauserparms:
                 self.ondatauserparms = {}
-            new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio,  caplim=self.caplim, **self.ondatauserparms)
+            new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, cash=self.cash, caplim=self.caplim,  **self.ondatauserparms)
 
             # portfolio performance 
-            self.pnl = self.portfoval - self.cash 
+            self.pnl = self.portfoval - self.startcash 
             self.pnlhistory.append(self.portfoval)
             if self.step >0:
                 self.sharpe = portcalc.sharpe_ratio(self.pnlhistory)
@@ -266,7 +242,7 @@ class Agent:
                     self.holdingshistory = []
                     self.pnlhistory = [] 
                 else:
-                    self.delay()
+                    self.delay(n_seconds)
             if verbose:
                 print('Step {} {}'.format(self.step, self.portfoval))
                 print()
@@ -278,17 +254,16 @@ class Agent:
 
 if __name__=='__main__':
 
-    def ondata(step, history, portfolio, caplim):
+    def ondata(step, history, portfolio, cash, caplim):
         target_portfolio = portfolio.copy()
         # calculate target portfolio which is random for this example
-        target_portfolio['volume'] = np.random.random()* 1000 - 500 
+        #target_portfolio['volume'] = np.random.random()* 10 - 5
+        target_portfolio['volume'] = 1
         return target_portfolio
 
-    tickerlist = [  ('TrueFX','GBP/USD'), ('TrueFX','EUR/USD'), ('TrueFX','JPY/USD'),
-                    ('TrueFX','CHF/USD'), ('TrueFX','CAD/USD'), ('TrueFX','AUD/USD'),
-                    ('IEX','SPY'), ('IEX','QQQ'), ('IEX','EEM'), ('IEX','TLT') , ('IEX','SHY')]
+    tickerlist = [ ('IEX','SPY'), ('IEX','QQQ'), ('IEX','EEM'), ('IEX','TLT') , ('IEX','IAU'), ('IEX','SLV')]
 
-    agent = Agent(ondatafunc=ondata,pedlarurl='http://127.0.0.1:5000',universe=tickerlist)
+    agent = Agent(ondatafunc=ondata,universe=tickerlist,agentname='buyandhold',maxsteps=20)
     agent.run(verbose=True,live=True)
 
 

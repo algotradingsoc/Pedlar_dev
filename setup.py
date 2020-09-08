@@ -6,7 +6,7 @@ with open("README.md", 'r') as fh:
   long_description = fh.read()
 
 setuptools.setup(
-  name="pedlar",
+  name="pedlaragent",
   version=VERSION,
   author="thomas",
   author_email="nuric@users.noreply.github.com",
@@ -14,7 +14,8 @@ setuptools.setup(
   long_description=long_description,
   long_description_content_type="text/markdown",
   url="https://github.com/ThomasWong2022/pedlar/",
-  packages=["pedlar"],
+  packages=["pedlaragent"],
+  include_package_data=True,
   classifiers=[
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
