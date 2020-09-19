@@ -219,30 +219,36 @@ class Agent:
 
         while self.step < self.maxsteps:
             self.update_history(live=live,verbose=False)
-            self.rebalance(new_weights,verbose=verbose)
-            # Update capital limit 
-            self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
-            self.caplim = self.portfoval * 2 
-            # Run user provided function to get target portfolio weights for the next data
-            if not self.ondatauserparms:
-                self.ondatauserparms = {}
-            new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, cash=self.cash, caplim=self.caplim,  **self.ondatauserparms)
+            # There is live data
+            if self.orderbook.shape[0] > 0:
+                self.rebalance(new_weights,verbose=verbose)
+                # Update capital limit 
+                self.portfoval = np.sum(self.portfolio['volume'] * self.orderbook['mid']) + self.cash
+                self.caplim = self.portfoval * 2 
+                # Run user provided function to get target portfolio weights for the next data
+                if not self.ondatauserparms:
+                    self.ondatauserparms = {}
+                new_weights = self.ondata(step=self.step, history=self.history, portfolio=self.portfolio, cash=self.cash, caplim=self.caplim,  **self.ondatauserparms)
 
-            # portfolio performance 
-            self.pnl = self.portfoval - self.startcash 
-            self.pnlhistory.append(self.portfoval)
-            if self.step >0:
-                self.sharpe = portcalc.sharpe_ratio(self.pnlhistory)
-            else:
-                self.sharpe = 0 
+                # portfolio performance 
+                self.pnl = self.portfoval - self.startcash 
+                self.pnlhistory.append(self.portfoval)
+                if self.step >0:
+                    self.sharpe = portcalc.sharpe_ratio(self.pnlhistory)
+                else:
+                    self.sharpe = 0 
+
             self.step += 1
+
             if live:
                 if self.step % self.maxlookup == (self.maxlookup-1):
                     self.save_record()
                     self.holdingshistory = []
                     self.pnlhistory = [] 
+                    self.delay(n_seconds)
                 else:
                     self.delay(n_seconds)
+            
             if verbose:
                 print('Step {} {}'.format(self.step, self.portfoval))
                 print()
