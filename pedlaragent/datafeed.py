@@ -62,7 +62,6 @@ def csv2mongo(client,dbname,collectionname,filename):
         db_cm = db[collectionname]
         tlist = pd.read_csv(filename)
         db_cm.insert_many(tlist.to_dict('records'))
-        client.close()
     except:
         print('File not uploaded ', filename)
 
@@ -72,7 +71,6 @@ def df2mongo(client,dbname,collectionname,df):
         db = client.get_database(dbname)
         db_cm = db[collectionname]
         db_cm.insert_many(df.to_dict('records'))
-        client.close()
     except:
         print('Not uploaded ', dbname,collectionname)
         
@@ -86,7 +84,6 @@ def mongo2df(client,dbname,collectionname):
         df.drop_duplicates(keep='last', inplace=True)
     except:
         print('Record not found',collectionname)
-    client.close()
     return df 
 
 def mongo2csv(client,dbname,collectionname,filepath):
