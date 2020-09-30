@@ -1,5 +1,5 @@
 # Pedlar_dev
-New pedlar under development. This is NOT the official version that has support 
+New pedlar under development. Last updated: Mar 2020
 
 # Overview 
 
