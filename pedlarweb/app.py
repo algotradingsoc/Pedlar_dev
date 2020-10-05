@@ -14,7 +14,7 @@ from flask import render_template, redirect, url_for, request, jsonify
 # Dash application
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input,Output 
+from dash.dependencies import Input, Output, State
 import dash_table
 import plotly.graph_objs as go
 
@@ -36,16 +36,15 @@ import pymongo
 
 # Setting up flask server 
 server = Flask(__name__,instance_relative_config=True)
-# Load configuration
-server.config.from_pyfile('config.py')
+
 
 # CSS
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', '/static/main.css']
 
 # Setting up dash applications
 dash_app1 = Dash(__name__, server = server, url_base_pathname='/leaderboard/', external_stylesheets=external_stylesheets )
-# dash_app2 = Dash(__name__, server = server, url_base_pathname='/orderbook/', external_stylesheets=external_stylesheets )
-dash_app3 = Dash(__name__, server = server, url_base_pathname='/iex/', external_stylesheets=external_stylesheets )
+#dash_app2 = Dash(__name__, server = server, url_base_pathname='/orderbook/', external_stylesheets=external_stylesheets )
+#dash_app3 = Dash(__name__, server = server, url_base_pathname='/iex/', external_stylesheets=external_stylesheets )
 dash_app4 = Dash(__name__, server = server, url_base_pathname='/pnl/', external_stylesheets=external_stylesheets )
 
 # mongo functions 
@@ -122,9 +121,12 @@ def render_dashboard():
     return redirect('/dash1')
 
 
-@server.route('/sample')
+
+
+@server.route('/iex')
 def render_dashboard3():
     return redirect('/dash3')
+
 
 @server.route('/pnl')
 def render_dashboard4():
@@ -145,24 +147,13 @@ dash_app1.layout = html.Div(children=[
         'border': 'thin lightgrey solid'
     },
     ),
-    dcc.Interval(
-        id='interval-leaderboard',
-        interval=1000*60, # in milliseconds
-        n_intervals=0
-    )
+    html.Button('Refresh', id='submit-val', n_clicks=0),
 ])
 
-@dash_app1.callback(Output('leaderboard-header', 'children'),
-              [Input('interval-leaderboard', 'n_intervals')])
-def update_leaderboard_header(n):
-    now = datetime.datetime.now().strftime("%Y/%m/%d %H:%M")
-    return [
-        html.Span('Current Datetime: {}'.format(now))
-    ]
 
 
 @dash_app1.callback(Output('leaderboard', 'columns'),
-              [Input('interval-leaderboard', 'n_intervals')])
+              [Input('submit-val', 'n_clicks')])
 def update_leaderboard(n):
     password = os.environ.get('algosocdbpw', 'algosocadmin')
     client = pymongo.MongoClient("mongodb+srv://algosocadmin:{}@icalgosoc-9xvha.mongodb.net/test?retryWrites=true&w=majority".format(password))
@@ -172,7 +163,7 @@ def update_leaderboard(n):
   
 
 @dash_app1.callback(Output('leaderboard', 'data'),
-              [Input('interval-leaderboard', 'n_intervals')])
+              [Input('submit-val', 'n_clicks')])
 def update_leaderboard_data(n):
     try:
         password = os.environ.get('algosocdbpw', 'algosocadmin')
@@ -182,66 +173,6 @@ def update_leaderboard_data(n):
     except:
         return []
 
-
-
-iex_table_cols = ['time', 'exchange', 'ticker', 'bid', 'ask', 'bidsize', 'asksize']
-iex_columns = [{"name": i, "id": i} for i in iex_table_cols]
-
-dash_app3.layout = html.Div(children=[
-    html.Span('IEX Orderbook'),
-    dcc.Dropdown(
-    id='iex-symbols',
-    options=[],
-    value=['SPY', 'QQQ'],
-    multi=True
-    ),
-    dash_table.DataTable(
-    id='iex',
-    columns=iex_columns,
-    data=[],
-    style_table={
-        'height': '300px',
-        'overflowY': 'scroll',
-        'border': 'thin lightgrey solid'
-    },
-    ),
-    dcc.Interval(
-        id='interval-iex',
-        interval=2*1000, # in milliseconds
-        n_intervals=0
-    ),
-    dcc.Interval(
-        id='interval-symbol',
-        interval=60*60*1000, # in milliseconds
-        n_intervals=0
-    ),
-])
-
-
-@dash_app3.callback(Output('iex-symbols', 'options'),
-              [Input('interval-symbol', 'n_intervals')])
-def update_iex_symbol(n):
-    try:
-        iexbaseurl = 'https://api.iextrading.com/1.0'
-        iextopsurl = iexbaseurl + '/ref-data/symbols'
-        r = requests.get(iextopsurl)
-        data = pd.DataFrame(r.json())
-        df = pd.DataFrame()
-        df['label'] = data['name']
-        df['value'] = data['symbol']
-        return df.to_dict('records')
-    except:
-        return [{'label':'SPDR S&P 500 ETF TRUST','value':'SPY'}]
-
-@dash_app3.callback(Output('iex', 'data'),
-              [Input('interval-iex', 'n_intervals'),Input('iex-symbols','value')])
-def update_iex_data(n,tickers):
-    try:
-        query_string = ','.join(tickers)
-        df = pedlaragent.iex.get_TOPS(query_string) 
-        return df.to_dict('records')
-    except:
-        return []
 
 dash_app4.layout = html.Div(children=[
     html.Span('Portfolio Value'),
@@ -267,15 +198,13 @@ dash_app4.layout = html.Div(children=[
     ),
     style={'height': 500},
     ),
-    dcc.Interval(
-        id='interval-backtest',
-        interval=2*1000, # in milliseconds
-        n_intervals=0
-    ),
+    html.Button('Refresh', id='submit-val', n_clicks=0),
 ])
 
+
+
 @dash_app4.callback(Output('backtest-ids', 'options'),
-              [Input('interval-backtest', 'n_intervals')])
+              [Input('submit-val', 'n_clicks')])
 def update_backtest_ids(n):
     try:
         password = os.environ.get('algosocdbpw', 'algosocadmin')
@@ -293,7 +222,7 @@ def update_backtest_ids(n):
 
 
 @dash_app4.callback(Output('pnl-graph', 'figure'),
-              [Input('interval-backtest', 'n_intervals'),Input('backtest-ids', 'value')])
+              [Input('submit-val', 'n_clicks'),Input('backtest-ids', 'value')])
 def update_backtest_data(n,backtestid):
     try:
         password = os.environ.get('algosocdbpw', 'algosocadmin')
@@ -322,7 +251,6 @@ def update_backtest_data(n,backtestid):
 
 app = DispatcherMiddleware(server, {
     '/dash1': dash_app1.server,
-    '/dash3': dash_app3.server,
     '/dash4': dash_app4.server,
 })
 
